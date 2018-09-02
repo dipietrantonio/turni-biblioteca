@@ -69,28 +69,33 @@ def ask_for_min_shifts(participants):
 
 
 
-empty_shift = lambda x: x[0] == -1
-
-
-
 class MinimumValueFrequency(Constraint):
     def __init__(self, valueToFrequency):
         self._valueToFrequency = valueToFrequency
-
+        self._subtr = dict()
+        for k in valueToFrequency:
+            self._subtr[k] = sum([valueToFrequency[g] for g in valueToFrequency if g != k])
+        self._myFreq = dict([(i, 0) for i in self._valueToFrequency])
 
     def __call__(self, variables, domains, assignments, forwardcheck=False):
-        myFreq = dict([(i, 0) for i in self._valueToFrequency])
+        for i in self._myFreq:
+            self._myFreq[i] = 0
         missing = False
+        M = len(variables)
         for variable in variables:
             if variable in assignments:
-                myFreq[assignments[variable]] += 1
+                self._myFreq[assignments[variable]] += 1
             else:
-                return True
-        for k in myFreq:
-            if myFreq[k] < self._valueToFrequency[k]:
+                missing = True
+        if missing:
+            for k in self._myFreq:
+                if self._myFreq[k] > M - self._subtr[k]:
+                    return False
+            return True
+        for k in self._myFreq:
+            if self._myFreq[k] < self._valueToFrequency[k]:
                 return False
         return True
-
 
 
 
@@ -100,6 +105,7 @@ def solve_with_constraints_lib(participants, options, calendar, partToMinShifts)
     for k in calendar:
         turni.addVariable(k, calendar[k])
     
+    empty_shift = lambda x: x[0] == -1
     # Constraint 1 - maximum one shift per person per day
     slotsInSameDay = list() if empty_shift(calendar[0]) else [0]
     for i in range(1, len(options)):

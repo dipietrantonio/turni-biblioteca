@@ -1,6 +1,6 @@
 # Turni biblioteca
 
-The following software is used to assign shifts to people that works in the library of the CS Department of La Sapienza.
+The following software is used to assign shifts to people that work in the CS dept. library of La Sapienza.
 
 ## Requirements
 
