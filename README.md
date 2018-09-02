@@ -6,10 +6,14 @@ The following software is used to assign shifts to people that works in the libr
 
 The following libraries must be installed:
 
-	- [constraint](https://labix.org/python-constraint)
+- [constraint](https://labix.org/python-constraint)
 
+## Usage
+
+`python shifts.py *pollID*
 
 ## TODO
 
 Things to do:
-	- add constraints to specify a minimum number of shifts per person.
+
+- add constraints to specify a minimum number of shifts per person.
