@@ -166,7 +166,6 @@ def solve_with_constraints_lib(participants, options, calendar, partToMinShifts)
     if len(slotsInSameDay) > 1:
         # add all different constraints
         turni.addConstraint(AllDifferentConstraint(), slotsInSameDay)
-        slotsInSameDay = [i]
 
     # Constraint 2 - each person p is assigned with at least partToMinShifts[p] shifts        
     turni.addConstraint(MinimumValueFrequency(partToMinShifts))
