@@ -11,6 +11,20 @@ from constraint import *
 
 
 def parse_doodle(pollID):
+    """
+    Retrieves poll data from doodle.com given the poll identifier.
+    
+    Parameters:
+    -----------
+        - `pollID`: the poll identifier (get it from the url)
+    
+    Returns:
+    --------
+    a tuple (participants, options, calendar) where
+        - `participants` is a mapping userID -> userName
+        - `options` is a list of datetime objects, representing the poll options
+        - `calendar` is a mapping optionIndex -> list of userID
+    """
     JSON = requests.get("https://doodle.com/api/v2.0/polls/" + pollID).content.decode('utf-8')
     JSON = json.loads(JSON)
 
@@ -38,14 +52,17 @@ def parse_doodle(pollID):
 
 def format_date(date):
     """
-    Return a unique string representation for the date, to be used as variable name.
+    Returns a string representation of `date` datetime object, for printing purposes.
     """
     return "{}/{}/{} {}:{}".format(date.day, date.month, date.year, date.hour, date.minute)
 
 
 
 def format_solution(solution, participants, options):
-    text = "Turni:\n_______\n\n"
+    """
+    Return a string representation of the solution.
+    """
+    text = "Shifts:\n_______\n\n"
     for i, option in enumerate(options):
         text += "{}   -->  {}\n".format(format_date(option), participants[solution[i]])
     return text
@@ -53,6 +70,9 @@ def format_solution(solution, participants, options):
 
 
 def ask_for_min_shifts(participants):
+    """
+    Asks the user to specify the minimum number of shifts to assign to each user.
+    """
     minShifts = dict()
     for p in participants:
         if p != -1:
@@ -70,25 +90,41 @@ def ask_for_min_shifts(participants):
 
 
 class MinimumValueFrequency(Constraint):
+    """
+    This constraint models the fact that each variable value must appear at least
+    with a minimum specified frequency in the solution.
+    """
+
+    
     def __init__(self, valueToFrequency):
         self._valueToFrequency = valueToFrequency
+        # frequency of each value, itially 0
+        self._myFreq = dict([(i, 0) for i in self._valueToFrequency])
+
+        # the following information is used later, as optimization step.
         self._subtr = dict()
         for k in valueToFrequency:
             self._subtr[k] = sum([valueToFrequency[g] for g in valueToFrequency if g != k])
-        self._myFreq = dict([(i, 0) for i in self._valueToFrequency])
-
+        
+        
+    
     def __call__(self, variables, domains, assignments, forwardcheck=False):
+
+        # set frequencies to 0
         for i in self._myFreq:
             self._myFreq[i] = 0
         missing = False
+        # maximum frequency is M
         M = len(variables)
         for variable in variables:
             if variable in assignments:
                 self._myFreq[assignments[variable]] += 1
             else:
                 missing = True
+        # if the assignment is incomplete, maybe we can see if it can be discarded too
         if missing:
             for k in self._myFreq:
+                # if k's frequency doesn't allow other values to reach their minimum frequency...
                 if self._myFreq[k] > M - self._subtr[k]:
                     return False
             return True
@@ -100,7 +136,16 @@ class MinimumValueFrequency(Constraint):
 
 
 def solve_with_constraints_lib(participants, options, calendar, partToMinShifts):
+    """
+    Formulate and solve the problem using `constraint` library
 
+    Parameters:
+    -----------
+        - `participants`: mapping participantID -> participantName
+        - `options`: list of datetime objects
+        - `calendar`: mapping optionID -> list of participantID
+        - `partToMinShifts`: mapping paricipantID -> min number of shifts to be assigned
+    """
     turni = Problem(MinConflictsSolver(1000000))
     for k in calendar:
         turni.addVariable(k, calendar[k])
