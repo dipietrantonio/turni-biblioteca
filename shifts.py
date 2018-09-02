@@ -2,10 +2,11 @@
 Author: Cristian Di Pietrantonio.
 
 """
-from constraint import *
 import json
 import requests
 import datetime
+import sys
+from constraint import *
 
 
 
@@ -51,23 +52,54 @@ def format_solution(solution, participants, options):
 
 
 
-if __name__ == "__main__":
-    import sys
+def ask_for_min_shifts(participants):
+    minShifts = dict()
+    for p in participants:
+        if p != -1:
+            n = input("Minimum shifts to assign to {}? ".format(participants[p]))
+            try:
+                n = int(n)
+            except ValueError:
+                n = ""
+            if n == "" or n < 0:
+                print("Error: input \"{}\" not valid.".format(n)) 
+                exit(1)
+            minShifts[p] = n
+    return minShifts
 
-    if len(sys.argv) < 2:
-        print("Usage: shifts.py <doodle-poll-id>")
-        exit(1)
-    
-    pollID = sys.argv[1]
-    participants, options, calendar = parse_doodle(pollID)
-    # create CSP problem
-    turni = Problem()
 
+
+empty_shift = lambda x: x[0] == -1
+
+
+
+class MinimumValueFrequency(Constraint):
+    def __init__(self, valueToFrequency):
+        self._valueToFrequency = valueToFrequency
+
+
+    def __call__(self, variables, domains, assignments, forwardcheck=False):
+        myFreq = dict([(i, 0) for i in self._valueToFrequency])
+        missing = False
+        for variable in variables:
+            if variable in assignments:
+                myFreq[assignments[variable]] += 1
+            else:
+                return True
+        for k in myFreq:
+            if myFreq[k] < self._valueToFrequency[k]:
+                return False
+        return True
+
+
+
+
+def solve_with_constraints_lib(participants, options, calendar, partToMinShifts):
+
+    turni = Problem(MinConflictsSolver(1000000))
     for k in calendar:
         turni.addVariable(k, calendar[k])
     
-    empty_shift = lambda x: x[0] == -1
-
     # Constraint 1 - maximum one shift per person per day
     slotsInSameDay = list() if empty_shift(calendar[0]) else [0]
     for i in range(1, len(options)):
@@ -85,8 +117,27 @@ if __name__ == "__main__":
         turni.addConstraint(AllDifferentConstraint(), slotsInSameDay)
         slotsInSameDay = [i]
 
+    # Constraint 2 - each person p is assigned with at least partToMinShifts[p] shifts        
+    turni.addConstraint(MinimumValueFrequency(partToMinShifts))
+
     solution = turni.getSolution()
+    if solution is None:
+        print("No solution found. Try again.")
+        exit()
     textSol = format_solution(solution, participants, options)
     print(textSol)
 
 
+
+if __name__ == "__main__":
+
+    if len(sys.argv) < 2:
+        print("Usage: shifts.py <doodle-poll-id>")
+        exit(1)
+    
+    pollID = sys.argv[1]
+    participants, options, calendar = parse_doodle(pollID)
+    # create CSP problem
+    partToMinShifts = ask_for_min_shifts(participants)
+    partToMinShifts[-1] = 0
+    solve_with_constraints_lib(participants, options, calendar, partToMinShifts)

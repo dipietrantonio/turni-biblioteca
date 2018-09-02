@@ -11,9 +11,3 @@ The following libraries must be installed:
 ## Usage
 
 `python shifts.py <poll-ID>`
-
-## TODO
-
-Things to do:
-
-- add constraints to specify a minimum number of shifts per person.
