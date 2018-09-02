@@ -2,7 +2,6 @@
 Author: Cristian Di Pietrantonio.
 
 """
-from bs4 import BeautifulSoup
 from constraint import *
 import json
 import requests

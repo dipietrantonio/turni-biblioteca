@@ -10,7 +10,7 @@ The following libraries must be installed:
 
 ## Usage
 
-`python shifts.py *pollID*
+`python shifts.py <poll-ID>`
 
 ## TODO
 
