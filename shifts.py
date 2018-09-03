@@ -31,6 +31,7 @@ def parse_doodle(pollID):
     options = [datetime.datetime.fromtimestamp(x['start']/1000) for x in JSON['options']]
     calendar = dict([(i, list()) for i in range(len(options))])
     participants = dict()
+    emptyShiftCounter = 0
     for participant in JSON['participants']:
         pID = participant['id']
         pName = participant['name']
@@ -42,9 +43,9 @@ def parse_doodle(pollID):
         
     for k in calendar:
         if len(calendar[k]) == 0:
-            calendar[k].append(-1) # empty shift
-    
-    participants[-1] = "<vuoto>"
+            emptyShiftCounter += 1
+            calendar[k].append(-emptyShiftCounter) # empty shift
+            participants[-emptyShiftCounter] = "<vuoto>"
 
     return participants, options, calendar
 
@@ -75,7 +76,7 @@ def ask_for_min_shifts(participants):
     """
     minShifts = dict()
     for p in participants:
-        if p != -1:
+        if p >= 0:
             n = input("Minimum shifts to assign to {}? ".format(participants[p]))
             try:
                 n = int(n)
@@ -100,8 +101,10 @@ class MinimumValueFrequency(Constraint):
         self._value = value
         # frequency of each value, itially 0
         self._minFreq = frequency
-        self._others = others
         # the following information is used later, as optimization step.
+        # It is the sum of all other values' minimum frequency
+        self._others = others
+        
         
     
     def __call__(self, variables, domains, assignments, forwardcheck=False):
@@ -145,7 +148,7 @@ def solve_with_constraints_lib(participants, options, calendar, partToMinShifts)
     for k in calendar:
         turni.addVariable(k, calendar[k])
     
-    empty_shift = lambda x: x[0] == -1
+    empty_shift = lambda x: x[0] < 0
     # Constraint 1 - maximum one shift per person per day
     slotsInSameDay = list() if empty_shift(calendar[0]) else [0]
     for i in range(1, len(options)):
@@ -164,6 +167,8 @@ def solve_with_constraints_lib(participants, options, calendar, partToMinShifts)
 
     # Constraint 2 - each person p is assigned with at least partToMinShifts[p] shifts
     for k in partToMinShifts:
+        if k < 0:
+            continue
         val = partToMinShifts[k]        
         turni.addConstraint(MinimumValueFrequency(k, val, sum([partToMinShifts[g] for g in partToMinShifts if g != k])))
 
@@ -186,5 +191,4 @@ if __name__ == "__main__":
     participants, options, calendar = parse_doodle(pollID)
     # create CSP problem
     partToMinShifts = ask_for_min_shifts(participants)
-    partToMinShifts[-1] = 0
     solve_with_constraints_lib(participants, options, calendar, partToMinShifts)
