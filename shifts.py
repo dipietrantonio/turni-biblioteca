@@ -96,42 +96,37 @@ class MinimumValueFrequency(Constraint):
     """
 
     
-    def __init__(self, valueToFrequency):
-        self._valueToFrequency = valueToFrequency
+    def __init__(self, value, frequency, others):
+        self._value = value
         # frequency of each value, itially 0
-        self._myFreq = dict([(i, 0) for i in self._valueToFrequency])
-
+        self._minFreq = frequency
+        self._others = others
         # the following information is used later, as optimization step.
-        self._subtr = dict()
-        for k in valueToFrequency:
-            self._subtr[k] = sum([valueToFrequency[g] for g in valueToFrequency if g != k])
-        
         
     
     def __call__(self, variables, domains, assignments, forwardcheck=False):
 
-        # set frequencies to 0
-        for i in self._myFreq:
-            self._myFreq[i] = 0
         missing = False
         # maximum frequency is M
+        freq = 0
         M = len(variables)
         for variable in variables:
             if variable in assignments:
-                self._myFreq[assignments[variable]] += 1
+                if assignments[variable] == self._value:
+                    freq += 1
             else:
                 missing = True
         # if the assignment is incomplete, maybe we can see if it can be discarded too
         if missing:
-            for k in self._myFreq:
-                # if k's frequency doesn't allow other values to reach their minimum frequency...
-                if self._myFreq[k] > M - self._subtr[k]:
-                    return False
-            return True
-        for k in self._myFreq:
-            if self._myFreq[k] < self._valueToFrequency[k]:
+            if freq > M - self._others:
                 return False
-        return True
+            else:
+                return True
+        
+        if freq < self._minFreq:
+            return False
+        else:
+            return True
 
 
 
@@ -167,8 +162,10 @@ def solve_with_constraints_lib(participants, options, calendar, partToMinShifts)
         # add all different constraints
         turni.addConstraint(AllDifferentConstraint(), slotsInSameDay)
 
-    # Constraint 2 - each person p is assigned with at least partToMinShifts[p] shifts        
-    turni.addConstraint(MinimumValueFrequency(partToMinShifts))
+    # Constraint 2 - each person p is assigned with at least partToMinShifts[p] shifts
+    for k in partToMinShifts:
+        val = partToMinShifts[k]        
+        turni.addConstraint(MinimumValueFrequency(k, val, sum([partToMinShifts[g] for g in partToMinShifts if g != k])))
 
     solution = turni.getSolution()
     if solution is None:
