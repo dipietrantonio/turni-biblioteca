@@ -69,24 +69,31 @@ def format_solution(solution, participants, options):
     return text
 
 
+def validate_value(n):
+    try:
+        n = int(n)
+    except ValueError:
+        n = ""
+    if n == "" or n < 0:
+        print("Error: input \"{}\" not valid.".format(n)) 
+        exit(1)
+    return n
 
-def ask_for_min_shifts(participants):
+
+
+def ask_for_min_max_shifts(participants):
     """
     Asks the user to specify the minimum number of shifts to assign to each user.
     """
-    minShifts = dict()
+    minMaxShifts = dict()
     for p in participants:
         if p >= 0:
-            n = input("Minimum shifts to assign to {}? ".format(participants[p]))
-            try:
-                n = int(n)
-            except ValueError:
-                n = ""
-            if n == "" or n < 0:
-                print("Error: input \"{}\" not valid.".format(n)) 
-                exit(1)
-            minShifts[p] = n
-    return minShifts
+            n = input("Min and max number of shifts to assign to {} (format: 'min,max' or just 'min')? ".format(participants[p])).split(',')
+            if len(n) == 1:
+                minMaxShifts[p] = (validate_value(n[0]), None)     
+            else:
+                minMaxShifts[p] = (validate_value(n[0]), validate_value(n[1]))
+    return minMaxShifts
 
 
 
@@ -105,8 +112,7 @@ class MinimumValueFrequency(Constraint):
         # It is the sum of all other values' minimum frequency
         self._others = others
         
-        
-    
+
     def __call__(self, variables, domains, assignments, forwardcheck=False):
 
         missing = False
@@ -130,6 +136,31 @@ class MinimumValueFrequency(Constraint):
             return False
         else:
             return True
+
+
+class MaximumValueFrequency(Constraint):
+    """
+    This constraint models the fact that each variable value must appear at most 
+    a specified frequency in the solution.
+    """
+
+    
+    def __init__(self, value, frequency):
+        self._value = value
+        # frequency of each value, itially 0
+        self._maxFreq = frequency
+        
+
+    def __call__(self, variables, domains, assignments, forwardcheck=False):
+
+        freq = 0
+        for variable in variables:
+            if variable in assignments:
+                if assignments[variable] == self._value:
+                    freq += 1
+                    if freq > self._maxFreq:
+                        return False
+        return True
 
 
 
@@ -169,9 +200,10 @@ def solve_with_constraints_lib(participants, options, calendar, partToMinShifts)
     for k in partToMinShifts:
         if k < 0:
             continue
-        val = partToMinShifts[k]        
-        turni.addConstraint(MinimumValueFrequency(k, val, sum([partToMinShifts[g] for g in partToMinShifts if g != k])))
-
+        minVal, maxVal = partToMinShifts[k]      
+        turni.addConstraint(MinimumValueFrequency(k, minVal, sum([partToMinShifts[g][0] for g in partToMinShifts if g != k])))
+        if maxVal is not None:
+            turni.addConstraint(MaximumValueFrequency(k, maxVal))
     solution = turni.getSolution()
     if solution is None:
         print("No solution found. Try again.")
@@ -190,5 +222,5 @@ if __name__ == "__main__":
     pollID = sys.argv[1]
     participants, options, calendar = parse_doodle(pollID)
     # create CSP problem
-    partToMinShifts = ask_for_min_shifts(participants)
+    partToMinShifts = ask_for_min_max_shifts(participants)
     solve_with_constraints_lib(participants, options, calendar, partToMinShifts)
